@@ -1,0 +1,595 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tepic & Toronto | Dos formas de habitar</title>
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap');
+
+        :root {
+            --tepic-primary: #C84B31;
+            --tepic-bg: #fff5f2;
+            --toronto-primary: #1D4E89;
+            --toronto-bg: #f0f7ff;
+            --bg-page: #f8f9fa;
+        }
+
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: var(--bg-page); color: #334155; }
+
+        /* Navegación y Toggle */
+        .nav-scroller {
+            position: sticky; top: 0; z-index: 1030;
+            background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .nav-pills .nav-link {
+            color: #64748B; font-weight: 600; border-radius: 12px; padding: 10px 20px; transition: all 0.3s ease; white-space: nowrap;
+        }
+        .nav-pills .nav-link:hover { background-color: #f1f5f9; color: #0f172a; }
+        .nav-pills .nav-link.active { background: linear-gradient(135deg, #334155 0%, #0f172a 100%); color: white; box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
+
+        .lang-switch { display: flex; align-items: center; gap: 8px; font-weight: 700; color: #64748B; margin-left: 15px; padding-right: 15px; border-left: 2px solid #e2e8f0; padding-left: 15px;}
+        .form-switch .form-check-input { width: 2.5em; height: 1.25em; cursor: pointer; }
+        .form-switch .form-check-input:checked { background-color: var(--toronto-primary); border-color: var(--toronto-primary); }
+
+        /* Animaciones en Cascada */
+        .animate-item { opacity: 0; transform: translateY(20px); animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .delay-1 { animation-delay: 0.1s; }
+        .delay-2 { animation-delay: 0.2s; }
+        .delay-3 { animation-delay: 0.3s; }
+        @keyframes slideUp { to { opacity: 1; transform: translateY(0); } }
+
+        /* Tarjetas Personalizadas */
+        .card-tepic { background-color: var(--tepic-bg); border: none; border-radius: 16px; transition: transform 0.3s ease; }
+        .card-toronto { background-color: var(--toronto-bg); border: none; border-radius: 16px; transition: transform 0.3s ease; }
+        .card-tepic:hover, .card-toronto:hover { transform: translateY(-5px); }
+        .text-tepic { color: var(--tepic-primary); font-weight: 700; }
+        .text-toronto { color: var(--toronto-primary); font-weight: 700; }
+        .icon-lg { font-size: 2.5rem; margin-bottom: 15px; display: inline-block; }
+
+        /* Cajas Multimedia */
+        .media-placeholder { background: linear-gradient(45deg, #e2e8f0, #f8fafc); border-radius: 12px; padding: 40px 20px; text-align: center; color: #94a3b8; font-weight: 600; border: 2px dashed #cbd5e1; margin-bottom: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .media-placeholder i { font-size: 2rem; margin-bottom: 10px; color: #cbd5e1; }
+
+        /* Componentes Extra */
+        #map { height: 450px; width: 100%; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); border: 4px solid white; z-index: 1; }
+        .form-check-input:checked { background-color: #10b981; border-color: #10b981; }
+        .checklist-item { background: white; padding: 15px 20px; border-radius: 12px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); cursor:pointer; }
+        .quote-box { background: white; border-left: 6px solid #eab308; padding: 30px; border-radius: 0 16px 16px 0; font-size: 1.25rem; font-style: italic; color: #475569; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+        
+        .quiz-card { background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; cursor: pointer; transition: all 0.3s ease; }
+        .quiz-card:hover { background: #f8fafc; border-color: #cbd5e1; }
+        .quiz-answer { display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid #eee; }
+        
+        footer { background: white; border-top: 1px solid #e2e8f0; margin-top: 80px; }
+    </style>
+</head>
+<body>
+
+    <!-- Menú con Toggle -->
+    <div class="nav-scroller py-3 px-2 px-md-4">
+        <ul class="nav nav-pills flex-nowrap gap-2 overflow-auto" id="pills-tab" role="tablist" style="flex:1;">
+            <li class="nav-item"><button class="nav-link active" id="btn-tab-0" data-bs-toggle="pill" data-bs-target="#tab-0" type="button"><i class="bi bi-house-door me-2"></i><span class="lang-txt" data-es="Inicio" data-en="Home">Inicio</span></button></li>
+            <li class="nav-item"><button class="nav-link" id="btn-tab-1" data-bs-toggle="pill" data-bs-target="#tab-1" type="button"><i class="bi bi-geo-alt me-2"></i><span class="lang-txt" data-es="Ciudades" data-en="Cities">Ciudades</span></button></li>
+            <li class="nav-item"><button class="nav-link" id="btn-tab-2" data-bs-toggle="pill" data-bs-target="#tab-2" type="button"><i class="bi bi-palette me-2"></i><span class="lang-txt" data-es="Cultura" data-en="Culture">Cultura</span></button></li>
+            <li class="nav-item"><button class="nav-link" id="btn-tab-3" data-bs-toggle="pill" data-bs-target="#tab-3" type="button"><i class="bi bi-camera me-2"></i><span class="lang-txt" data-es="Turismo" data-en="Tourism">Turismo</span></button></li>
+            <li class="nav-item"><button class="nav-link" id="btn-tab-4" data-bs-toggle="pill" data-bs-target="#tab-4" type="button"><i class="bi bi-bicycle me-2"></i><span class="lang-txt" data-es="Cotidianidad" data-en="Daily Life">Cotidianidad</span></button></li>
+            <li class="nav-item"><button class="nav-link" id="btn-tab-5" data-bs-toggle="pill" data-bs-target="#tab-5" type="button"><i class="bi bi-airplane me-2"></i><span class="lang-txt" data-es="Viajar" data-en="Travel">Viajar</span></button></li>
+            <li class="nav-item"><button class="nav-link" id="btn-tab-6" data-bs-toggle="pill" data-bs-target="#tab-6" type="button"><i class="bi bi-arrow-left-right me-2"></i><span class="lang-txt" data-es="Contrastes" data-en="Contrasts">Contrastes</span></button></li>
+            <li class="nav-item"><button class="nav-link" id="btn-tab-7" data-bs-toggle="pill" data-bs-target="#tab-7" type="button"><i class="bi bi-lightbulb me-2"></i><span class="lang-txt" data-es="Reflexión" data-en="Reflection">Reflexión</span></button></li>
+            <li class="nav-item"><button class="nav-link" id="btn-tab-8" data-bs-toggle="pill" data-bs-target="#tab-8" type="button"><i class="bi bi-journal-text me-2"></i><span class="lang-txt" data-es="Fuentes" data-en="Sources">Fuentes</span></button></li>
+        </ul>
+        <div class="lang-switch form-check form-switch mb-0">
+            <span id="label-es" class="text-primary">ES</span>
+            <input class="form-check-input mt-1" type="checkbox" id="languageToggle">
+            <span id="label-en">EN</span>
+        </div>
+    </div>
+
+    <main class="container py-5">
+        <div class="tab-content" id="pills-tabContent">
+            
+            <!-- Pestaña 0: Inicio -->
+            <div class="tab-pane fade show active" id="tab-0" role="tabpanel">
+                <div class="text-center mb-5 animate-item">
+                    <span class="badge bg-dark px-3 py-2 rounded-pill mb-3 lang-txt" data-es="Proyecto Interactivo" data-en="Interactive Project">Proyecto Interactivo</span>
+                    <h1 class="display-4 fw-bold lang-txt" data-es="Tepic & Toronto" data-en="Tepic & Toronto">Tepic & Toronto</h1>
+                    <p class="lead text-muted lang-txt" data-es="¿Por qué elegir entre dos lugares cuando podemos aprender de ambos?" data-en="Why choose between two places when we can learn from both?">¿Por qué elegir entre dos lugares cuando podemos aprender de ambos?</p>
+                </div>
+                <div class="row g-4">
+                    <div class="col-md-6 animate-item delay-1">
+                        <div class="card-tepic shadow-sm p-4 h-100">
+                            <img src="Media/tepic main hero.jpg" alt="Descripción de la imagen" class="img-fluid rounded-4 shadow-sm" style="width: 100%; object-fit: cover; aspect-ratio: 16/9;">
+                            <h2 class="text-tepic"><i class="bi bi-sun-fill me-2"></i>Tepic, Nayarit</h2>
+                            <p class="fs-5">Una ciudad donde la historia regional, los pueblos originarios y el entorno natural forman un arraigado sentido de pertenencia.</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6 animate-item delay-2">
+                        <div class="card-toronto shadow-sm p-4 h-100">
+                            <img src="Media/toronto1.jpeg" alt="Descripción de la imagen" class="img-fluid rounded-4 shadow-sm" style="width: 100%; object-fit: cover; aspect-ratio: 16/9;">
+                            <h2 class="text-toronto"><i class="bi bi-buildings-fill me-2"></i>Toronto, Canadá</h2>
+                            <p class="fs-5">Una metrópoli multicultural construida a partir de la diversidad internacional y la convivencia de múltiples orígenes.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pestaña 1: Ciudades -->
+            <div class="tab-pane fade" id="tab-1" role="tabpanel">
+                <h2 class="fw-bold mb-4 animate-item">1. Conociendo a nuestras ciudades</h2>
+                
+                <div class="row g-4 mb-5">
+                    <div class="col-md-6 animate-item delay-1">
+                        <div class="bg-white p-4 rounded-4 shadow-sm h-100 border-top border-4" style="border-color: var(--tepic-primary) !important;">
+                            <h3 class="text-tepic mb-3"><i class="bi bi-translate me-2"></i>Tepic: Lugar de piedras macizas</h3>
+                            <p class="text-muted"><strong>Origen:</strong> Su nombre proviene del náhuatl, asociado a su suelo volcánico y su conexión con el Cerro de San Juan. Habitado antes por coras y wixaritari, fue consolidado como Tepic en la época colonial y capital de Nayarit en 1917.</p>
+                            <p class="text-muted mb-0"><strong>Geografía:</strong> Se encuentra en un valle a 915 metros sobre el nivel del mar. Posee un clima templado subhúmedo y veranos lluviosos marcados, rodeada de cerros volcánicos.</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6 animate-item delay-2">
+                        <div class="bg-white p-4 rounded-4 shadow-sm h-100 border-top border-4" style="border-color: var(--toronto-primary) !important;">
+                            <h3 class="text-toronto mb-3"><i class="bi bi-translate me-2"></i>Toronto: Lugar de encuentro</h3>
+                            <p class="text-muted"><strong>Origen:</strong> Su nombre proviene de la palabra indígena mohawk/huron "Tkaronto", que significa donde hay árboles en el agua. Fue un punto de encuentro y portaje para las primeras naciones.</p>
+                            <p class="text-muted mb-0"><strong>Geografía:</strong> Ubicada en la orilla norte del inmenso lago Ontario, casi a nivel del lago. Posee un clima continental con 4 estaciones muy marcadas: inviernos fríos con nevadas y veranos cálidos y húmedos.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-3 mb-5">
+                    <div class="col-6 col-md-3 animate-item delay-3"><div class="bg-white p-4 rounded-4 shadow-sm text-center h-100"><i class="bi bi-people-fill icon-lg text-tepic"></i><h3 class="fw-bold">425K</h3><p class="text-muted small mb-0">Habitantes aprox. (2020)</p></div></div>
+                    <div class="col-6 col-md-3 animate-item delay-3"><div class="bg-white p-4 rounded-4 shadow-sm text-center h-100"><i class="bi bi-people-fill icon-lg text-toronto"></i><h3 class="fw-bold">2.76M</h3><p class="text-muted small mb-0">Habitantes aprox. (2021)</p></div></div>
+                </div>
+
+                <div class="bg-white p-4 p-md-5 rounded-4 shadow-sm animate-item delay-3">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h3 class="fw-bold mb-0"><i class="bi bi-map-fill me-2 text-primary"></i>Mapa Interactivo Global</h3>
+                        <div class="d-flex gap-2">
+                            <button onclick="map.setView([21.5095, -104.8957], 12)" class="btn btn-outline-danger rounded-pill px-3">Tepic</button>
+                            <button onclick="map.setView([43.6532, -79.3832], 10)" class="btn btn-outline-primary rounded-pill px-3">Toronto</button>
+                        </div>
+                    </div>
+                    <div id="map"></div>
+                </div>
+            </div>
+
+            <!-- Pestaña 2: Cultura -->
+            <div class="tab-pane fade" id="tab-2" role="tabpanel">
+                <h2 class="fw-bold mb-4 animate-item">2. La Riqueza de la Diversidad</h2>
+                
+                <div class="row align-items-center bg-white rounded-4 shadow-sm p-4 p-md-5 mb-4 animate-item delay-1">
+                    <div class="col-md-6 order-2 order-md-1 mt-4 mt-md-0">
+                        <span class="badge bg-danger-subtle text-danger mb-2 px-3 py-2 rounded-pill">Identidad Regional</span>
+                        <h3 class="text-tepic fw-bold display-6">Raíces y Costumbres (Tepic)</h3>
+                        <p class="fs-5 text-muted">La cultura tepicense se caracteriza por sus tradiciones mexicanas, sus fiestas populares y sus raíces indígenas. Entre sus expresiones culturales destacan la música regional, las artesanías wixárikas y náayeris, así como platillos típicos como el pescado zarandeado, el ceviche y los tamales de camarón.</p>
+                    </div>
+                    <div class="col-md-6 order-1 order-md-2">
+                        <img src="Media/costumbres.jpg" alt="Descripción de la imagen" class="img-fluid rounded-4 shadow-sm" style="width: 100%; object-fit: cover; aspect-ratio: 16/9;">
+                    </div>
+                </div>
+
+                <div class="row align-items-center bg-white rounded-4 shadow-sm p-4 p-md-5 animate-item delay-2">
+                    <div class="col-md-6">
+                       <img src="Media/hockey.jpg" alt="Descripción de la imagen" class="img-fluid rounded-4 shadow-sm" style="width: 100%; object-fit: cover; aspect-ratio: 16/9;">
+                    </div>
+                    <div class="col-md-6 mt-4 mt-md-0 ps-md-5">
+                        <span class="badge bg-primary-subtle text-primary mb-2 px-3 py-2 rounded-pill">Metrópoli Global</span>
+                        <h3 class="text-toronto fw-bold display-6">Mosaico Cultural (Toronto)</h3>
+                        <p class="fs-5 text-muted">Es una ciudad multicultural donde conviven personas de diferentes países y nacionalidades. Esto se refleja en sus idiomas, restaurantes, festivales (como el Toronto Caribbean Carnival o TIFF), música y celebraciones. Ademas, estan completamente enamorados del hockey.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pestaña 3: Turismo -->
+            <div class="tab-pane fade" id="tab-3" role="tabpanel">
+                <h2 class="fw-bold mb-4 animate-item">3. Turismo y Experiencias</h2>
+                
+                <div class="accordion shadow-sm rounded-4 overflow-hidden animate-item delay-1" id="accordionTurismo">
+                    <div class="accordion-item border-0 border-bottom">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button fs-4 fw-bold text-tepic collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTepic">
+                                <i class="bi bi-geo-alt-fill me-3"></i> Tepic: Turismo con Identidad Regional
+                            </button>
+                        </h2>
+                        <div id="collapseTepic" class="accordion-collapse collapse" data-bs-parent="#accordionTurismo">
+                            <div class="accordion-body p-4 p-md-5 bg-white">
+                                <p class="text-muted mb-4">Tepic combina un centro histórico que se puede recorrer a pie, espacios culturales, gastronomía regional y áreas verdes.</p>
+                                <div class="row g-4">
+                                    <div class="col-md-6">
+                                        <ul class="list-group list-group-flush border-0">
+                                            <li class="list-group-item bg-transparent border-0 px-0 mb-2">
+                                                <h5 class="fw-bold text-tepic">Centro Histórico y Catedral</h5>
+                                                <p class="text-muted small">Caminar por esta zona ayuda a conocer cómo conviven los espacios religiosos, comerciales y públicos.</p>
+                                            </li>
+                                            <li class="list-group-item bg-transparent border-0 px-0 mb-2">
+                                                <h5 class="fw-bold text-tepic">Museo Regional de Nayarit</h5>
+                                                <p class="text-muted small">Sus exposiciones presentan objetos relacionados con la historia y las herencias culturales de la región.</p>
+                                            </li>
+                                            <li class="list-group-item bg-transparent border-0 px-0 mb-2">
+                                                <h5 class="fw-bold text-tepic">Casa Museo Amado Nervo</h5>
+                                                <p class="text-muted small">Una oportunidad para acercarse a la literatura y entender la memoria cultural de la ciudad.</p>
+                                            </li>
+                                            <li class="list-group-item bg-transparent border-0 px-0 mb-2">
+                                                <h5 class="fw-bold text-tepic">Parque La Loma y Cerro San Juan</h5>
+                                                <p class="text-muted small">Espacios recreativos y referencias naturales del paisaje nayarita para disfrutar al aire libre.</p>
+                                            </li>
+                                            <li class="list-group-item bg-transparent border-0 px-0 mb-2">
+                                                <h5 class="fw-bold text-tepic">Mercados y Gastronomía</h5>
+                                                <p class="text-muted small">Probar platillos regionales y conversar con comerciantes es una manera sencilla de acercarse a la vida cotidiana.</p>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <img src="Media/museo.jpg" alt="Descripción de la imagen" class="img-fluid rounded-4 shadow-sm" style="width: 100%; object-fit: cover; aspect-ratio: 16/9;">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="accordion-item border-0">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button fs-4 fw-bold text-toronto collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseToronto">
+                                <i class="bi bi-building me-3"></i> Toronto: Turismo Urbano y Multicultural
+                            </button>
+                        </h2>
+                        <div id="collapseToronto" class="accordion-collapse collapse" data-bs-parent="#accordionTurismo">
+                            <div class="accordion-body p-4 p-md-5 bg-white">
+                                <p class="text-muted mb-4">Toronto se distingue por la combinación de rascacielos, barrios históricos, museos, parques y comunidades de distintos orígenes.</p>
+                                <div class="row g-4">
+                                    <div class="col-md-6">
+                                        <ul class="list-group list-group-flush border-0">
+                                            <li class="list-group-item bg-transparent border-0 px-0 mb-2">
+                                                <h5 class="fw-bold text-toronto">CN Tower</h5>
+                                                <p class="text-muted small">Símbolo del desarrollo tecnológico. Sus miradores ofrecen una perspectiva general de la ciudad y el inmenso lago Ontario.</p>
+                                            </li>
+                                            <li class="list-group-item bg-transparent border-0 px-0 mb-2">
+                                                <h5 class="fw-bold text-toronto">Royal Ontario Museum (ROM)</h5>
+                                                <p class="text-muted small">Reúne colecciones de historia natural, arte e historia de culturas del mundo en un edificio moderno/histórico.</p>
+                                            </li>
+                                            <li class="list-group-item bg-transparent border-0 px-0 mb-2">
+                                                <h5 class="fw-bold text-toronto">Distillery Historic District</h5>
+                                                <p class="text-muted small">Antiguos edificios industriales de ladrillo rojo transformados en un espacio cultural con galerías y cafeterías.</p>
+                                            </li>
+                                            <li class="list-group-item bg-transparent border-0 px-0 mb-2">
+                                                <h5 class="fw-bold text-toronto">High Park y Toronto Islands</h5>
+                                                <p class="text-muted small">Las islas ofrecen playas y vistas del horizonte urbano; High Park es un escape natural dentro de la gran ciudad.</p>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <img src="Media/ontaromuseo.jpg" alt="Descripción de la imagen" class="img-fluid rounded-4 shadow-sm" style="width: 100%; object-fit: cover; aspect-ratio: 16/9;">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pestaña 4: Vida Cotidiana y Costos -->
+            <div class="tab-pane fade" id="tab-4" role="tabpanel">
+                <h2 class="fw-bold mb-4 animate-item">4. Vida Cotidiana y Costos</h2>
+                <div class="alert alert-light border-0 shadow-sm rounded-4 p-4 mb-5 d-flex align-items-center animate-item delay-1">
+                    <i class="bi bi-wallet2 fs-2 text-warning me-4"></i>
+                    <p class="mb-0 fs-5 text-muted">Las dimensiones de una ciudad dictan la forma en que sus habitantes se relacionan. Conoce sus contrastes de movilidad y juega con el presupuesto estimado de un día (Costos referenciales):</p>
+                </div>
+
+                <!-- Textos completos sobre vida cotidiana -->
+                <div class="row g-4 mb-5 animate-item delay-2">
+                    <div class="col-md-6">
+                        <div class="bg-white p-4 rounded-4 shadow-sm h-100">
+                            <h4 class="text-tepic fw-bold mb-3"><i class="bi bi-car-front-fill me-2"></i>Movilidad en Tepic</h4>
+                            <p class="text-muted">En Tepic, los traslados suelen ser de menor escala. El transporte se basa principalmente en autobuses urbanos, camiones, combis, taxis y motocicletas. La convivencia diaria se vive en plazas (como la Plaza Principal o la Alameda), parques locales y mercados como el Juan Escutia, favoreciendo un ambiente vecinal y de mucha cercanía.</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="bg-white p-4 rounded-4 shadow-sm h-100">
+                            <h4 class="text-toronto fw-bold mb-3"><i class="bi bi-train-front-fill me-2"></i>Movilidad en Toronto</h4>
+                            <p class="text-muted">La inmensidad de Toronto requiere una red de transporte masiva operada por la TTC, que incluye metro, extensas líneas de tranvías (streetcars), trenes GO y autobuses. La vida social y multicultural fluye entre grandes parques, inmensas bibliotecas, plazas como Nathan Phillips Square y eventos masivos en sus distintos barrios.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Calculadora / Presupuesto Visual -->
+                <div class="row g-4 animate-item delay-3">
+                    <div class="col-md-6">
+                        <div class="card-tepic p-4 h-100 text-center">
+                            <h3 class="text-tepic fw-bold mb-3">Día Promedio en Tepic</h3>
+                            <h1 class="display-3 fw-bold text-dark">$450 <span class="fs-4 text-muted">MXN</span></h1>
+                            <p class="text-muted">Transporte público ($30) + Comida corrida/menú ($120) + Cena típica/tacos ($100) + Cine/Recreación ($200)</p>
+                            <p class="small text-muted mt-2">Aprox. 18-30 € | Moneda: Peso Mexicano</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card-toronto p-4 h-100 text-center">
+                            <h3 class="text-toronto fw-bold mb-3">Día Promedio en Toronto</h3>
+                            <h1 class="display-3 fw-bold text-dark">$110 <span class="fs-4 text-muted">CAD</span></h1>
+                            <p class="text-muted">Transporte TTC 2 viajes ($6.60) + Comida rápida/Food truck ($25) + Cena en restaurante ($40) + Atracción/Extras ($38)</p>
+                            <p class="small text-danger mt-2">Aprox. 54-88 € | Toronto es 3 a 4 veces más costoso en hospedaje y alimentación diaria.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pestaña 5: Viajar Responsable -->
+            <div class="tab-pane fade" id="tab-5" role="tabpanel">
+                <h2 class="fw-bold mb-4 animate-item">5. Viajar con Responsabilidad</h2>
+                <p class="lead text-muted mb-4 animate-item delay-1">En cualquiera de las dos ciudades, un buen visitante debe respetar las normas de los lugares turísticos, cuidar los espacios públicos y naturales, y evitar dejar basura. Marca estas recomendaciones para preparar tu viaje:</p>
+                
+                <div class="row g-4 animate-item delay-2">
+                    <div class="col-md-6">
+                        <div class="bg-white p-4 rounded-4 shadow-sm h-100 border-top border-4" style="border-color: var(--tepic-primary) !important;">
+                            <h4 class="text-tepic fw-bold mb-4"><i class="bi bi-suitcase-fill me-2"></i>Visitando Tepic</h4>
+                            
+                            <label class="checklist-item d-flex align-items-center">
+                                <input class="form-check-input fs-4 mt-0 me-3" type="checkbox">
+                                <span class="fs-5 text-muted">El clima es templado, pero considera que los veranos (junio-septiembre) son lluviosos.</span>
+                            </label>
+                            <label class="checklist-item d-flex align-items-center">
+                                <input class="form-check-input fs-4 mt-0 me-3" type="checkbox">
+                                <span class="fs-5 text-muted">En el Cerro de San Juan y zonas ecológicas, respeta los senderos permitidos y no alteres la flora/fauna.</span>
+                            </label>
+                            <label class="checklist-item d-flex align-items-center">
+                                <input class="form-check-input fs-4 mt-0 me-3" type="checkbox">
+                                <span class="fs-5 text-muted">La mayoría del comercio local maneja pesos (MXN). Ten efectivo para el transporte público (camiones).</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="bg-white p-4 rounded-4 shadow-sm h-100 border-top border-4" style="border-color: var(--toronto-primary) !important;">
+                            <h4 class="text-toronto fw-bold mb-4"><i class="bi bi-airplane-fill me-2"></i>Visitando Toronto</h4>
+                            
+                            <label class="checklist-item d-flex align-items-center">
+                                <input class="form-check-input fs-4 mt-0 me-3" type="checkbox">
+                                <span class="fs-5 text-muted">Tramita con anticipación pasaporte vigente y eTA o visa canadiense según tu nacionalidad.</span>
+                            </label>
+                            <label class="checklist-item d-flex align-items-center">
+                                <input class="form-check-input fs-4 mt-0 me-3" type="checkbox">
+                                <span class="fs-5 text-muted">El clima es extremo. Adapta tu ropa: inviernos bajo cero con nevadas y veranos cálidos con alta humedad.</span>
+                            </label>
+                            <label class="checklist-item d-flex align-items-center">
+                                <input class="form-check-input fs-4 mt-0 me-3" type="checkbox">
+                                <span class="fs-5 text-muted">Planea tus rutas y verifica horarios, accesibilidad y costos del TTC en las páginas oficiales de turismo.</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pestaña 6: Contrastes, Mitos y Realidades -->
+            <div class="tab-pane fade" id="tab-6" role="tabpanel">
+                <div class="text-center mb-5 animate-item">
+                    <h2 class="fw-bold">6. Dos Enfoques, Un Mundo</h2>
+                    <p class="lead text-muted mx-auto" style="max-width:800px;">La comparación no busca establecer una competencia. Sus diferencias no las hacen mejores ni peores; las hacen únicas. Pon a prueba tus conocimientos haciendo clic en los mitos.</p>
+                </div>
+                
+                <!-- Quiz de Mitos -->
+                <div class="row g-4 mb-5">
+                    <div class="col-md-4 animate-item delay-1">
+                        <div class="quiz-card h-100" onclick="toggleQuiz(this)">
+                            <h5 class="fw-bold text-dark"><i class="bi bi-question-circle text-warning me-2"></i>Mito: Toronto es la capital de Canadá.</h5>
+                            <p class="text-muted mb-0 small">Haz clic para ver...</p>
+                            <div class="quiz-answer">
+                                <h6 class="text-success fw-bold"><i class="bi bi-check-circle me-1"></i>Realidad</h6>
+                                <p class="mb-0 text-muted small">Falso. Toronto es la ciudad más grande, pero la capital de Canadá es Ottawa.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 animate-item delay-2">
+                        <div class="quiz-card h-100" onclick="toggleQuiz(this)">
+                            <h5 class="fw-bold text-dark"><i class="bi bi-question-circle text-warning me-2"></i>Mito: Tepic es de reciente creación.</h5>
+                            <p class="text-muted mb-0 small">Haz clic para ver...</p>
+                            <div class="quiz-answer">
+                                <h6 class="text-success fw-bold"><i class="bi bi-check-circle me-1"></i>Realidad</h6>
+                                <p class="mb-0 text-muted small">Falso. Tepic ya estaba habitado por pueblos originarios antes de los españoles y se fundó formalmente en 1531.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 animate-item delay-3">
+                        <div class="quiz-card h-100" onclick="toggleQuiz(this)">
+                            <h5 class="fw-bold text-dark"><i class="bi bi-question-circle text-warning me-2"></i>Mito: Tepic no tiene presencia indígena.</h5>
+                            <p class="text-muted mb-0 small">Haz clic para ver...</p>
+                            <div class="quiz-answer">
+                                <h6 class="text-success fw-bold"><i class="bi bi-check-circle me-1"></i>Realidad</h6>
+                                <p class="mb-0 text-muted small">Falso. La herencia y presencia de los pueblos Wixárika, Na’ayeri, O’dam y Mexikan es un pilar de su identidad cultural.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Textos completos de Ventajas y Desafíos -->
+                <div class="row g-4 animate-item delay-3">
+                    <div class="col-md-6">
+                        <div class="bg-white p-4 p-md-5 rounded-4 shadow-sm h-100">
+                            <h3 class="fw-bold text-tepic mb-4"><i class="bi bi-star-fill text-tepic me-2"></i>La Perspectiva del Visitante: Tepic</h3>
+                            <h5 class="fw-bold text-success"><i class="bi bi-plus-circle-fill me-2"></i>Ventajas</h5>
+                            <ul class="text-muted mb-4 pb-2 border-bottom">
+                                <li>Permite conocer de forma inmersiva la cultura regional de Nayarit.</li>
+                                <li>Cuenta con atractivos naturales y montañas de fácil acceso cercano.</li>
+                                <li>Ofrece una excelente gastronomía tradicional.</li>
+                                <li>Es una oportunidad auténtica para experimentar un ambiente urbano de escala humana y costumbres mexicanas vivas.</li>
+                            </ul>
+                            
+                            <h5 class="fw-bold text-danger"><i class="bi bi-dash-circle-fill me-2"></i>Desafíos</h5>
+                            <ul class="text-muted mb-0">
+                                <li>Algunas actividades ecoturísticas en los alrededores requieren transporte particular o planeación.</li>
+                                <li>La cobertura del transporte público puede limitar a un visitante no familiarizado con las rutas.</li>
+                                <li>Durante la temporada de verano es indispensable considerar las fuertes lluvias.</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="bg-white p-4 p-md-5 rounded-4 shadow-sm h-100">
+                            <h3 class="fw-bold text-toronto mb-4"><i class="bi bi-globe-americas text-toronto me-2"></i>La Perspectiva del Visitante: Toronto</h3>
+                            <h5 class="fw-bold text-success"><i class="bi bi-plus-circle-fill me-2"></i>Ventajas</h5>
+                            <ul class="text-muted mb-4 pb-2 border-bottom">
+                                <li>Permite interactuar y conocer una abrumadora diversidad cultural global.</li>
+                                <li>Cuenta con museos, galerías, arquitectura moderna y espacios culturales de talla mundial.</li>
+                                <li>Posee una amplísima y eficiente red de transporte público interconectado.</li>
+                                <li>Brinda experiencias gastronómicas de prácticamente cualquier país del mundo.</li>
+                            </ul>
+                            
+                            <h5 class="fw-bold text-danger"><i class="bi bi-dash-circle-fill me-2"></i>Desafíos</h5>
+                            <ul class="text-muted mb-0">
+                                <li>Es un destino significativamente más costoso en hospedaje, vuelos y alimentación diaria.</li>
+                                <li>Las inmensas distancias metropolitanas requieren mucha planificación para recorrer varios lugares en un día.</li>
+                                <li>El severo invierno (con nevadas) puede dificultar los recorridos turísticos al aire libre.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pestaña 7: Reflexión (Textos íntegros sobre Otredad) -->
+            <div class="tab-pane fade" id="tab-7" role="tabpanel">
+                <h2 class="fw-bold mb-4 animate-item">7. Reflexión: Otredad y Diversidad</h2>
+                
+                <div class="quote-box mb-5 animate-item delay-1">
+                    <span class="lang-txt" data-es='"Conocer estas culturas nos ayuda a entender que existen diferentes formas de vivir y pensar, y que ninguna es mejor que otra. Lo importante es aprender a respetarlas y valorar lo que cada comunidad aporta."' data-en='"Knowing these cultures helps us understand that there are different ways of living and thinking, and neither is better than the other. The important thing is to respect them and value what each community contributes."'>
+                        "Conocer estas culturas nos ayuda a entender que existen diferentes formas de vivir y pensar, y que ninguna es mejor que otra. Lo importante es aprender a respetarlas y valorar lo que cada comunidad aporta."
+                    </span>
+                </div>
+                
+                <div class="row g-4 animate-item delay-2">
+                    <div class="col-md-6">
+                        <div class="bg-white p-4 p-md-5 rounded-4 shadow-sm h-100 border-start border-4 border-warning">
+                            <h3 class="fw-bold text-dark mb-4">Comprender la Otredad</h3>
+                            <p class="fs-5 text-muted">La otredad es reconocer que el "otro" no es extraño ni inferior, sino una persona con otra historia, otra lengua y otra forma de vivir. Cuando comparamos Tepic y Toronto, no juzgamos quién vive mejor, sino dos formas de hacer comunidad.</p>
+                            <p class="fs-5 text-muted mb-0">En Tepic la otredad se vive en la cercanía: saludar al vecino, compartir, y convivir con las comunidades wixaritari y coras. En Toronto se vive en la inmensa diversidad: caminar por barrios como Chinatown o Little Italy, donde ser diferente es simplemente lo normal.</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="bg-white p-4 p-md-5 rounded-4 shadow-sm h-100 border-start border-4 border-info">
+                            <h3 class="fw-bold text-dark mb-4">El Valor de la Diversidad</h3>
+                            <p class="fs-5 text-muted">Abrazar la diversidad cultural nos ayuda a no juzgar desde nuestras propias costumbres. Ambos lugares nos recuerdan (incluso desde el origen indígena de sus nombres) que ninguna ciudad se construye de un solo pensamiento.</p>
+                            <p class="fs-5 text-muted mb-0">Visitar Tepic y Toronto no representa elegir entre dos destinos, sino vivir dos experiencias distintas. Conocer otra ciudad es mirarnos en un espejo diferente: entendemos mejor quiénes somos cuando vemos cómo viven otros. La otredad no nos separa; nos completa.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pestaña 8: Fuentes Completas -->
+            <div class="tab-pane fade" id="tab-8" role="tabpanel">
+                <h2 class="fw-bold mb-4 animate-item">8. Fuentes Oficiales y Consultas</h2>
+                
+                <div class="bg-white p-4 p-md-5 rounded-4 shadow-sm animate-item delay-1">
+                    <p class="text-muted mb-4">La información demográfica, turística y de movilidad presentada en este micrositio ha sido extraída de los siguientes documentos oficiales:</p>
+                    <ul class="list-group list-group-flush fs-5 text-muted">
+                        <li class="list-group-item py-3"><i class="bi bi-journal-check text-primary me-3"></i><strong>Instituto Nacional de Estadística y Geografía (INEGI).</strong> (2020). Censo de Población y Vivienda 2020. México.</li>
+                        <li class="list-group-item py-3"><i class="bi bi-journal-check text-primary me-3"></i><strong>Statistics Canada.</strong> (2021). Census Profile, 2021 Census of Population. Datos de diversidad etnocultural y censos metropolitanos.</li>
+                        <li class="list-group-item py-3"><i class="bi bi-journal-check text-primary me-3"></i><strong>City of Toronto.</strong> (s. f.). Getting around the city (Toronto Transit Commission), estrategia de arte público y manejo de espacios verdes.</li>
+                        <li class="list-group-item py-3"><i class="bi bi-journal-check text-primary me-3"></i><strong>Gobierno Municipal de Tepic / Visita Tepic.</strong> (s. f.). Documentos municipales y referencia turística local.</li>
+                        <li class="list-group-item py-3"><i class="bi bi-journal-check text-primary me-3"></i><strong>Instituto Nacional de Antropología e Historia (INAH).</strong> (s.f.). Información cultural e histórica del Museo Regional de Nayarit y los Cinco Pueblos.</li>
+                        <li class="list-group-item py-3"><i class="bi bi-journal-check text-primary me-3"></i><strong>Secretaría de Cultura.</strong> (2011). Archivos del Sistema de Información Cultural y Patrimonio regional.</li>
+                    </ul>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Footer a 3 Columnas -->
+    <footer>
+        <div class="container py-5">
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <h5 class="fw-bold mb-3"><i class="bi bi-intersect me-2 text-primary"></i>Tepic & Toronto</h5>
+                    <p class="text-muted small">Dos formas de habitar, muchas formas de convivir. Un micrositio que promueve el reconocimiento de la otredad y el enriquecimiento cultural sin sesgos de competencia.</p>
+                </div>
+                <div class="col-md-4">
+                    <h5 class="fw-bold mb-3">Proyecto Académico</h5>
+                    <p class="text-muted small mb-1">Elaborado como material comparativo para la materia de Otredad y Diversidad Cultural.</p>
+                    <p class="text-muted small">&copy; 2026. Desarrollo estudiantil. Basado en lineamientos "propuestaguia.docx".</p>
+                </div>
+                <div class="col-md-4">
+                    <h5 class="fw-bold mb-3">Aviso de Datos</h5>
+                    <p class="text-muted small mb-1">Costos de viaje estimados basados en conversión MXN/CAD a noviembre de 2026. Las cifras censales y demográficas pueden variar en estimaciones más recientes.</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <script>
+        // 1. Inicialización del Mapa
+        const map = L.map('map').setView([33.5, -92.0], 4); 
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+
+        const createCustomIcon = (color) => {
+            return L.divIcon({
+                className: 'custom-pin',
+                html: `<div style="background-color: ${color}; width: 22px; height: 22px; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.3);"></div>`,
+                iconSize: [28, 28], iconAnchor: [14, 14], popupAnchor: [0, -10]
+            });
+        };
+        L.marker([21.5095, -104.8957], {icon: createCustomIcon('#C84B31')}).addTo(map).bindPopup('<b>Tepic, Nayarit</b>');
+        L.marker([43.6532, -79.3832], {icon: createCustomIcon('#1D4E89')}).addTo(map).bindPopup('<b>Toronto, Canadá</b>');
+
+        // Refrescar tamaño del mapa al abrir su pestaña
+        document.getElementById('btn-tab-1').addEventListener('shown.bs.tab', function () {
+            setTimeout(() => { map.invalidateSize(); }, 150);
+        });
+
+        // 2. Lógica del Toggle de Idioma (ES / EN) de la UI superior
+        const langToggle = document.getElementById('languageToggle');
+        const langElements = document.querySelectorAll('.lang-txt');
+        const lblEs = document.getElementById('label-es');
+        const lblEn = document.getElementById('label-en');
+
+        langToggle.addEventListener('change', (e) => {
+            const isEnglish = e.target.checked;
+            lblEs.className = isEnglish ? 'text-muted' : 'text-primary';
+            lblEn.className = isEnglish ? 'text-primary' : 'text-muted';
+
+            langElements.forEach(el => {
+                el.innerText = isEnglish ? el.getAttribute('data-en') : el.getAttribute('data-es');
+            });
+        });
+
+        // 3. Lógica del Mini-Quiz (Mitos y Realidades)
+        function toggleQuiz(element) {
+            const answerDiv = element.querySelector('.quiz-answer');
+            if (answerDiv.style.display === 'block') {
+                answerDiv.style.display = 'none';
+                element.style.backgroundColor = 'white';
+            } else {
+                answerDiv.style.display = 'block';
+                element.style.backgroundColor = '#f0fdf4'; 
+            }
+        }
+        
+        // 4. Reiniciar animaciones al cambiar de pestaña
+        const tabBtns = document.querySelectorAll('[data-bs-toggle="pill"]');
+        tabBtns.forEach(btn => {
+            btn.addEventListener('show.bs.tab', function(e) {
+                const targetId = e.target.getAttribute('data-bs-target');
+                const targetPane = document.querySelector(targetId);
+                const animatedItems = targetPane.querySelectorAll('.animate-item');
+                
+                animatedItems.forEach(item => {
+                    item.style.animation = 'none';
+                    item.offsetHeight; /* trigger reflow */
+                    item.style.animation = null; 
+                });
+            });
+        });
+    </script>
+</body>
+</html>
